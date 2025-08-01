@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Speech Translate & Speak</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 2rem;
+    background-image: url('world.jpg'); /* Your local image */
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    color: white;
+    text-shadow: 0 0 5px #000;
+  }
+  textarea {
+    width: 100%;
+    height: 4rem;
+    margin: 0.5rem 0;
+    font-size: 1rem;
+    border-radius: 5px;
+    padding: 0.5rem;
+  }
+  button {
+    padding: 0.6rem 1rem;
+    font-size: 1rem;
+    margin-top: 1rem;
+    cursor: pointer;
+    border: none;
+    border-radius: 5px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+  }
+  #status {
+    margin-top: 1rem;
+    color: lightgreen;
+  }
+  h1 {
+    text-align: center;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 0.5rem;
+    border-radius: 10px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Speech Translate & Speak</h1>
+
+<button id="start-btn">Start Listening & Translate</button>
+
+<p><strong>Recognized Text:</strong></p>
+<textarea id="source-text" readonly></textarea>
+
+<p><strong>Translated Text:</strong></p>
+<textarea id="translated-text" readonly></textarea>
+
+<p id="status"></p>
+
+<script>
+const startBtn = document.getElementById('start-btn');
+const sourceTextArea = document.getElementById('source-text');
+const translatedTextArea = document.getElementById('translated-text');
+const statusP = document.getElementById('status');
+
+const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+recognition.lang = 'en-US'; // source language
+recognition.interimResults = false;
+recognition.maxAlternatives = 1;
+
+startBtn.onclick = () => {
+  statusP.textContent = "Listening...";
+  recognition.start();
+};
+
+recognition.onresult = async (event) => {
+  const spokenText = event.results[0][0].transcript;
+  sourceTextArea.value = spokenText;
+  statusP.textContent = "Translating...";
+
+  try {
+    const targetLang = 'fr';
+    const translated = await translateText(spokenText, 'en', targetLang);
+    translatedTextArea.value = translated;
+    statusP.textContent = "Speaking translated text...";
+    speakText(translated, targetLang);
+  } catch (err) {
+    statusP.textContent = "Translation failed: " + err.message;
+  }
+};
+
+recognition.onerror = (e) => {
+  statusP.textContent = "Speech recognition error: " + e.error;
+};
+
+function translateText(text, sourceLang, targetLang) {
+  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${sourceLang}|${targetLang}`;
+  return fetch(url)
+    .then(res => res.json())
+    .then(data => {
+      if (data.responseStatus !== 200) {
+        throw new Error(data.responseDetails || 'Translation error');
+      }
+      return data.responseData.translatedText;
+    });
+}
+
+function getVoiceByLang(targetLang) {
+  const voices = speechSynthesis.getVoices();
+  let voice = null;
+
+  if (targetLang === 'fr') {
+    // Prioritize 'Google français' voice explicitly since it works for you
+    voice = voices.find(v => v.name === 'Google français');
+  }
+
+  if (!voice) {
+    // fallback to voices matching language code
+    voice = voices.find(v => v.lang === (targetLang === 'fr' ? 'fr-FR' : targetLang));
+  }
+
+  if (!voice) {
+    // fallback to any voice with target language prefix
+    voice = voices.find(v => v.lang.startsWith(targetLang));
+  }
+
+  if (!voice) {
+    // fallback to first voice available
+    voice = voices[0];
+  }
+
+  return voice;
+}
+
+function speakText(text, lang) {
+  let voices = speechSynthesis.getVoices();
+  if (voices.length === 0) {
+    speechSynthesis.onvoiceschanged = () => speakText(text, lang);
+    return;
+  }
+
+  const voice = getVoiceByLang(lang);
+  console.log('Speaking with voice:', voice.name, voice.lang);
+
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = voice.lang || lang;
+  utterance.voice = voice;
+
+  setTimeout(() => {
+    speechSynthesis.speak(utterance);
+  }, 300);
+}
+</script>
+
+</body>
+</html>

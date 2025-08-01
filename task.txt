@@ -1,0 +1,13 @@
+Create REST API - JSON
+
+GET /Users - Get all User
+
+GET /Api/Users - 
+
+POST /Api/Users - Create User
+
+PATCH /Api/Users - Update partial data of User
+
+PUT /Api/Users - Update data of User(if doesn't exist then create it)
+
+DELETE /Api/Users - Delete User
